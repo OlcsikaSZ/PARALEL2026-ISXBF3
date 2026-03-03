@@ -1,6 +1,6 @@
 # Game of Life (Életjáték) – OpenCL alapú párhuzamos megvalósítás (terv / koncepció)
 
-Ez a beadandó célja egy **Conway-féle Game of Life** (Életjáték) szimulátor elkészítése **OpenCL** technológiával. A projekt fókusza nem csak a működő szimuláció lesz, hanem az, hogy a megoldás **párhuzamos** legyen, **mérhető** legyen, és a teljesítmény **tudatosan hangolható** legyen (tuning).
+A beadandó célja egy **Conway-féle Game of Life** (Életjáték) szimulátor elkészítése **OpenCL** technológiával. A projekt fókusza nem csak a működő szimuláció lesz, hanem az, hogy a megoldás **párhuzamos** legyen, **mérhető** legyen, és a teljesítmény **tudatosan hangolható** legyen (tuning).
 
 A dokumentum jelenlegi formájában **témabemutató jellegű**: azt írja le, **mi fog elkészülni**, milyen modulokból fog állni, és hogyan fogjuk igazolni a megoldás helyességét és gyorsaságát.
 
@@ -164,20 +164,3 @@ make
 ```
 
 ---
-
-## 8. Mitől lesz „jó” ez a beadandó?
-
-A projekt akkor lesz erős, ha az alábbiak teljesülnek:
-
-- van **baseline** (naiv kernel), amihez képest mérünk
-- van **optimalizált** változat (local memory + tiled)
-- van **tuning** (local size paraméterezhető, és a mérésekben látszik a hatása)
-- van **mérési jegyzőkönyv** (CSV + grafikonok)
-- a működés **ellenőrzött** (helyességi teszt vagy ismert minták)
-
----
-
-## License
-
-A beadandóhoz (ha nem írja elő másképp a tárgy) egyszerűen választható MIT licenc, vagy a tantárgyi előírások szerinti licenc/megjelölés.
-
