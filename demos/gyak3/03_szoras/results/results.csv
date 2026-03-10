@@ -1,0 +1,1 @@
+elemszam,local_work_size,num_groups,write_ms,kernel_ms,read_ms,total_gpu_ms,cpu_ms,gpu_mean,gpu_variance,gpu_stddev,status10000000,256,39063,3.590,5.783,0.028,9.402,16.000,496.9847480000,83053.9109335765,288.1907544207,OK

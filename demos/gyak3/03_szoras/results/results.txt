@@ -1,0 +1,15 @@
+Feladat: szoras szamitasa OpenCL-lel
+Elemszam: 10000000
+Local work size: 256
+Work-groupok szama: 39063
+Host->Device masolas: 3.590 ms
+Kernel ido: 5.783 ms
+Device->Host masolas: 0.028 ms
+GPU osszesen (masolas+kernel): 9.402 ms
+CPU ido: 16.000 ms
+GPU sum: 4969847480
+GPU sum_sq: 3300477506782
+GPU atlag: 496.9847480000
+GPU variancia: 83053.9109335765
+GPU szoras: 288.1907544207
+Ellenorzes: SIKERES
