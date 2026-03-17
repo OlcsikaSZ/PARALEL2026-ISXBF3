@@ -1,0 +1,2 @@
+input_type,n,gap_seq,local_size,host_to_device_ms,kernel_ms,device_to_host_ms,total_gpu_ms,cpu_ms,correct
+random,65536,shell,64,0.096,992.788,0.018,998.000,24.000,1
