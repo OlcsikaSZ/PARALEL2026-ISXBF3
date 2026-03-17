@@ -119,9 +119,105 @@ static size_t round_up(size_t value, size_t multiple) {
     return rem == 0 ? value : value + (multiple - rem);
 }
 
+static int wrap_coord_cpu(int v, int maxv) {
+    int r = v % maxv;
+    return (r < 0) ? (r + maxv) : r;
+}
+
+static unsigned char read_cell_cpu(const unsigned char* grid,
+                                   int x,
+                                   int y,
+                                   int rows,
+                                   int cols,
+                                   int wrap)
+{
+    if (wrap) {
+        x = wrap_coord_cpu(x, rows);
+        y = wrap_coord_cpu(y, cols);
+        return grid[(size_t)x * (size_t)cols + (size_t)y];
+    }
+    if (x < 0 || x >= rows || y < 0 || y >= cols) return 0;
+    return grid[(size_t)x * (size_t)cols + (size_t)y];
+}
+
+static void gol_cpu_step(const unsigned char* in,
+                         unsigned char* out,
+                         int rows,
+                         int cols,
+                         int wrap)
+{
+    for (int x = 0; x < rows; ++x) {
+        for (int y = 0; y < cols; ++y) {
+            int sum = 0;
+            for (int dx = -1; dx <= 1; ++dx) {
+                for (int dy = -1; dy <= 1; ++dy) {
+                    if (dx == 0 && dy == 0) continue;
+                    sum += (int)read_cell_cpu(in, x + dx, y + dy, rows, cols, wrap);
+                }
+            }
+
+            const size_t idx = (size_t)x * (size_t)cols + (size_t)y;
+            const unsigned char alive = in[idx];
+            if (alive) out[idx] = (sum == 2 || sum == 3) ? 1u : 0u;
+            else       out[idx] = (sum == 3) ? 1u : 0u;
+        }
+    }
+}
+
+static int validate_against_cpu(const unsigned char* initial,
+                                const unsigned char* gpu_result,
+                                int rows,
+                                int cols,
+                                int iters,
+                                int wrap)
+{
+    const size_t n = (size_t)rows * (size_t)cols;
+    unsigned char* cpu_a = (unsigned char*)malloc(n);
+    unsigned char* cpu_b = (unsigned char*)malloc(n);
+    if (!cpu_a || !cpu_b) {
+        fprintf(stderr, "CPU validation allocation failed.\n");
+        free(cpu_a);
+        free(cpu_b);
+        return -1;
+    }
+
+    memcpy(cpu_a, initial, n);
+    for (int t = 0; t < iters; ++t) {
+        gol_cpu_step(cpu_a, cpu_b, rows, cols, wrap);
+        unsigned char* tmp = cpu_a;
+        cpu_a = cpu_b;
+        cpu_b = tmp;
+    }
+
+    int mismatch_index = -1;
+    for (size_t i = 0; i < n; ++i) {
+        if (cpu_a[i] != gpu_result[i]) {
+            mismatch_index = (int)i;
+            break;
+        }
+    }
+
+    if (mismatch_index >= 0) {
+        int mx = mismatch_index / cols;
+        int my = mismatch_index % cols;
+        fprintf(stderr,
+                "Validation FAILED at cell (%d,%d): CPU=%u GPU=%u\n",
+                mx, my,
+                (unsigned)cpu_a[mismatch_index],
+                (unsigned)gpu_result[mismatch_index]);
+        free(cpu_a);
+        free(cpu_b);
+        return 0;
+    }
+
+    free(cpu_a);
+    free(cpu_b);
+    return 1;
+}
+
 static void usage(const char* argv0) {
-    printf("Usage: %s [--rows N] [--cols N] [--iters N] [--seed N] [--wrap 0|1] [--tiled 0|1] [--lx N] [--ly N] [--csv] [--out FILE] [--repeat N] [--warmup N]\n", argv0);
-    printf("Defaults: rows=1024 cols=1024 iters=500 seed=time wrap=0 tiled=0 lx=16 ly=16 repeat=1 warmup=0\n");
+    printf("Usage: %s [--rows N] [--cols N] [--iters N] [--seed N] [--wrap 0|1] [--tiled 0|1] [--lx N] [--ly N] [--validate 0|1] [--csv] [--out FILE] [--repeat N] [--warmup N]\n", argv0);
+    printf("Defaults: rows=1024 cols=1024 iters=500 seed=time wrap=0 tiled=0 lx=16 ly=16 validate=0 repeat=1 warmup=0\n");
 }
 
 int main(int argc, char** argv) {
@@ -131,6 +227,7 @@ int main(int argc, char** argv) {
     unsigned int seed = (unsigned int)time(NULL);
     int wrap = 0;
     int tiled = 0;
+    int validate = 0;
     int csv = 0;
     int lx_arg = 16;
     int ly_arg = 16;
@@ -145,6 +242,7 @@ int main(int argc, char** argv) {
         else if (!strcmp(argv[i], "--seed") && i + 1 < argc) seed = (unsigned int)strtoul(argv[++i], NULL, 10);
         else if (!strcmp(argv[i], "--wrap") && i + 1 < argc) wrap = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--tiled") && i + 1 < argc) tiled = atoi(argv[++i]);
+        else if (!strcmp(argv[i], "--validate") && i + 1 < argc) validate = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--lx") && i + 1 < argc) lx_arg = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--ly") && i + 1 < argc) ly_arg = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--csv")) csv = 1;
@@ -214,8 +312,8 @@ int main(int argc, char** argv) {
 
     size_t lx = (size_t)lx_arg;
     size_t ly = (size_t)ly_arg;
-    size_t gx = round_up((size_t)cols, lx);
-    size_t gy = round_up((size_t)rows, ly);
+    size_t gx = round_up((size_t)rows, lx);
+    size_t gy = round_up((size_t)cols, ly);
 
     size_t global[2] = { gx, gy };
     size_t local[2]  = { lx, ly };
@@ -357,6 +455,33 @@ int main(int argc, char** argv) {
     double d2h_ms = sum_d2h_ms / (double)repeat;
     double total_ms = sum_total_ms / (double)repeat;
 
+    if (validate) {
+        int validation_ok = validate_against_cpu(h_grid, h_tmp, rows, cols, iters, wrap);
+        if (validation_ok < 0) {
+            fprintf(stderr, "Validation could not be completed due to allocation failure.\n");
+            clReleaseMemObject(d_a);
+            clReleaseMemObject(d_b);
+            clReleaseKernel(kernel);
+            clReleaseProgram(program);
+            clReleaseCommandQueue(queue);
+            clReleaseContext(context);
+            free(h_grid);
+            free(h_tmp);
+            return 2;
+        }
+        if (validation_ok == 0) {
+            clReleaseMemObject(d_a);
+            clReleaseMemObject(d_b);
+            clReleaseKernel(kernel);
+            clReleaseProgram(program);
+            clReleaseCommandQueue(queue);
+            clReleaseContext(context);
+            free(h_grid);
+            free(h_tmp);
+            return 2;
+        }
+    }
+
     if (csv) {
         printf("%d,%d,%d,%d,%u,%u,%.6f,%.6f,%.6f,%.6f,%d\n",
                rows, cols, iters, wrap,
@@ -369,6 +494,9 @@ int main(int argc, char** argv) {
                (unsigned)lx, (unsigned)ly,
                (unsigned)gx, (unsigned)gy);
         printf("Warmup: %d, Repeat: %d\n", warmup, repeat);
+        if (validate) {
+            printf("Validation: PASSED (GPU result matches CPU reference)\n");
+        }
         printf("H2D:   %.3f ms\n", h2d_ms);
         printf("Kernel:%.3f ms (sum over iters)\n", ker_ms);
         printf("D2H:   %.3f ms\n", d2h_ms);
