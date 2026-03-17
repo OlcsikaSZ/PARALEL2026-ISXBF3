@@ -3,7 +3,11 @@ import matplotlib.pyplot as plt  # type: ignore
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
+PROJECT_DIR = BASE_DIR.parent
 CSV_FILE = BASE_DIR / "results_wrap.csv"
+FIGURES_DIR = PROJECT_DIR / "documentation" / "figures"
+
+FIGURES_DIR.mkdir(parents=True, exist_ok=True)
 
 df = pd.read_csv(CSV_FILE)
 
@@ -73,7 +77,7 @@ plt.title("OpenCL Game of Life - wrap összehasonlítás")
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
-plt.savefig(BASE_DIR / "wrap_kernel_compare.png", dpi=300)
+plt.savefig(FIGURES_DIR / "wrap_kernel_compare.png", dpi=300)
 plt.close()
 
-print("Kész: wrap_kernel_compare.png")
+print(f"Kész: {FIGURES_DIR / 'wrap_kernel_compare.png'}")
