@@ -3,7 +3,11 @@ import matplotlib.pyplot as plt  # type: ignore
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
+PROJECT_DIR = BASE_DIR.parent
 CSV_FILE = BASE_DIR / "results.csv"
+FIGURES_DIR = PROJECT_DIR / "documentation" / "figures"
+
+FIGURES_DIR.mkdir(parents=True, exist_ok=True)
 
 df = pd.read_csv(CSV_FILE)
 
@@ -17,7 +21,6 @@ df["cells"] = df["rows"] * df["cols"]
 df["size_label"] = df.apply(lambda r: f"{int(r['rows'])}x{int(r['cols'])}", axis=1)
 df["kernel_per_iter_ms"] = df["kernel_ms"] / df["iters"]
 
-# Stabil sorrend a rácsméretekhez
 size_order_df = (
     df[["rows", "cols", "cells", "size_label"]]
     .drop_duplicates()
@@ -28,7 +31,6 @@ size_order_df = (
 size_order = size_order_df["size_label"].tolist()
 size_to_x = {label: i for i, label in enumerate(size_order)}
 
-# Egységes görbesorrend
 preferred_order = [
     "naive 16x16",
     "tiled 8x8",
@@ -65,7 +67,7 @@ plt.title("OpenCL Game of Life - kernel idő / iteráció")
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
-plt.savefig(BASE_DIR / "kernel_per_iter.png", dpi=300)
+plt.savefig(FIGURES_DIR / "kernel_per_iter.png", dpi=300)
 plt.close()
 
 # ---------- Grafikon 2: gyorsulás a naive verzióhoz képest ----------
@@ -115,7 +117,7 @@ plt.title("OpenCL Game of Life - gyorsulás")
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
-plt.savefig(BASE_DIR / "speedup.png", dpi=300)
+plt.savefig(FIGURES_DIR / "speedup.png", dpi=300)
 plt.close()
 
 # ---------- Grafikon 3: teljes futási idő ----------
@@ -136,12 +138,14 @@ for label in sort_labels(df["label"].unique()):
 
 plt.xticks(range(len(size_order)), size_order)
 plt.xlabel("Rácsméret")
-plt.ylabel("Teljes futási idő (ms)")
-plt.title("OpenCL Game of Life - teljes futási idő")
+plt.ylabel("Összegzett profilozott végrehajtási idő (ms)")
+plt.title("OpenCL Game of Life - összegzett profilozott végrehajtási idő")
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
-plt.savefig(BASE_DIR / "total_time.png", dpi=300)
+plt.savefig(FIGURES_DIR / "total_time.png", dpi=300)
 plt.close()
 
-print("Kész: kernel_per_iter.png, speedup.png, total_time.png")
+print(f"Kész: {FIGURES_DIR / 'kernel_per_iter.png'}")
+print(f"Kész: {FIGURES_DIR / 'speedup.png'}")
+print(f"Kész: {FIGURES_DIR / 'total_time.png'}")
