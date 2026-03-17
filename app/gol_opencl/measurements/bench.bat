@@ -1,8 +1,9 @@
 @echo off
 setlocal EnableDelayedExpansion
 
-set EXE=gol_opencl
-set OUT=results.csv
+cd /d %~dp0..
+set EXE=gol_opencl.exe
+set OUT=measurements\results.csv
 
 if exist %OUT% del %OUT%
 
