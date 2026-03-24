@@ -20,13 +20,13 @@ for %%S in (512 1024 2048 4096) do (
     echo ==== SIZE %%S x %%S, iters=!ITERS! ====
 
     REM Naive baseline
-    %EXE% --rows %%S --cols %%S --iters !ITERS! --wrap 0 --lx 16 --ly 16 --repeat 5 --warmup 1 --csv --out %OUT%
+    %EXE% --rows %%S --cols %%S --iters !ITERS! --wrap 0 --lx 16 --ly 16 --seed 12345 --repeat 5 --warmup 1 --csv --out %OUT%
 
     REM Tiled 8x8
-    %EXE% --rows %%S --cols %%S --iters !ITERS! --wrap 0 --tiled 1 --lx 8 --ly 8 --repeat 5 --warmup 1 --csv --out %OUT%
+    %EXE% --rows %%S --cols %%S --iters !ITERS! --wrap 0 --tiled 1 --lx 8 --ly 8 --seed 12345 --repeat 5 --warmup 1 --csv --out %OUT%
 
     REM Tiled 16x16
-    %EXE% --rows %%S --cols %%S --iters !ITERS! --wrap 0 --tiled 1 --lx 16 --ly 16 --repeat 5 --warmup 1 --csv --out %OUT%
+    %EXE% --rows %%S --cols %%S --iters !ITERS! --wrap 0 --tiled 1 --lx 16 --ly 16 --seed 12345 --repeat 5 --warmup 1 --csv --out %OUT%
 
     echo.
 )
