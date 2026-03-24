@@ -18,16 +18,16 @@ for %%S in (1024 2048) do (
     echo ==== SIZE %%S x %%S, iters=!ITERS! ====
 
     REM Naive wrap=0
-    %EXE% --rows %%S --cols %%S --iters !ITERS! --wrap 0 --lx 16 --ly 16 --repeat 5 --warmup 1 --csv --out %OUT%
+    %EXE% --rows %%S --cols %%S --iters !ITERS! --wrap 0 --lx 16 --ly 16 --seed 12345 --repeat 5 --warmup 1 --csv --out %OUT%
 
     REM Naive wrap=1
-    %EXE% --rows %%S --cols %%S --iters !ITERS! --wrap 1 --lx 16 --ly 16 --repeat 5 --warmup 1 --csv --out %OUT%
+    %EXE% --rows %%S --cols %%S --iters !ITERS! --wrap 1 --lx 16 --ly 16 --seed 12345 --repeat 5 --warmup 1 --csv --out %OUT%
 
     REM Tiled 16x16 wrap=0
-    %EXE% --rows %%S --cols %%S --iters !ITERS! --wrap 0 --tiled 1 --lx 16 --ly 16 --repeat 5 --warmup 1 --csv --out %OUT%
+    %EXE% --rows %%S --cols %%S --iters !ITERS! --wrap 0 --tiled 1 --lx 16 --ly 16 --seed 12345 --repeat 5 --warmup 1 --csv --out %OUT%
 
     REM Tiled 16x16 wrap=1
-    %EXE% --rows %%S --cols %%S --iters !ITERS! --wrap 1 --tiled 1 --lx 16 --ly 16 --repeat 5 --warmup 1 --csv --out %OUT%
+    %EXE% --rows %%S --cols %%S --iters !ITERS! --wrap 1 --tiled 1 --lx 16 --ly 16 --seed 12345 --repeat 5 --warmup 1 --csv --out %OUT%
 
     echo.
 )
