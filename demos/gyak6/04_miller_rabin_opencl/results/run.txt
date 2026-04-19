@@ -1,0 +1,17 @@
+=== 04 - Miller-Rabin prímteszt OpenCL ===
+Darabszam: 200000
+Kezdo odd szam: 1000000000001
+
+GPU eszkoz: NVIDIA GeForce GTX 1660 Ti
+
+[CPU] Prímek száma: 14525
+[CPU] Idő: 6.785 s
+[CPU] Sebesség: 29476.79 szám/s
+
+[GPU] Prímek száma: 14525
+[GPU] Idő: 0.274 s
+[GPU] Sebesség: 729927.01 szám/s
+
+Eltérések száma: 0
+Gyorsulás (CPU/GPU): 24.76x
+Megjegyzés: ez a változat 64 bites számokra készült. 128+ bitnél már más liga van, ott big integer kell.
