@@ -1,0 +1,21 @@
+=== 03 - MD5 jelszo visszafejtes ===
+Karakterkeszlet merete: 62
+Jelszohossz: 6
+Teljes jelszoter: 56800235584
+CPU limit: 2000000
+GPU global size: 1048576, passes: 32
+Megjegyzes: a 4 megadott hash nem biztos, hogy beleesik a default tesztelt tartomanyba.
+
+[CPU] Vizsgalt jeloltek: 2000000
+[CPU] Ido: 0.472 s
+[CPU] Becsult sebesseg: 4237288.14 jelszo/s
+
+[GPU] Eszkoz: NVIDIA GeForce GTX 1660 Ti
+[GPU] Nincs talalat a tesztelt tartomanyban: user1
+[GPU] Nincs talalat a tesztelt tartomanyban: user2
+[GPU] Nincs talalat a tesztelt tartomanyban: user3
+[GPU] Nincs talalat a tesztelt tartomanyban: user4
+[GPU] Vizsgalt jeloltek: 33554432
+[GPU] Ido: 0.006 s
+[GPU] Becsult sebesseg: 5592405333.33 jelszo/s
+[GPU] Megjegyzes: a teljes jelszoter brutalisan nagy, ezert alapbol csak meresi/teszt tartomanyt futtatunk.

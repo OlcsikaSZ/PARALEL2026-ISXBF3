@@ -1,0 +1,17 @@
+=== 05 - Prímszám generálás OpenCL ===
+Bitek száma: 32
+Batch méret: 131072
+
+GPU eszköz: NVIDIA GeForce GTX 1660 Ti
+
+[CPU] Első talált prím: 2268494587
+[CPU] Vizsgált jelöltek: 13
+[CPU] Idő: 0.000 s
+
+[GPU] Első talált prím a batch-ben: 2268494587
+[GPU] Batch méret: 131072
+[GPU] Idő: 0.051 s
+[GPU] Sebesség: 2570039.22 jelölt/s
+
+Eltérések száma: 12071
+Megjegyzés: ez a generátor 64 bit alatti (legfeljebb 63 bites) prímszámokra van belőve.
