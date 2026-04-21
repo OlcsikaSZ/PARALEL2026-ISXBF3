@@ -132,17 +132,17 @@ A teljesítménymérések célja annak vizsgálata volt, hogy a Game of Life Ope
 
 A fő mérési sorozatban négy különböző rácsméretet vizsgáltam: \texttt{512x512}, \texttt{1024x1024}, \texttt{2048x2048} és \texttt{4096x4096}. Az iterációk számát a rácsméret függvényében választottam meg, hogy minden esetben elegendő mennyiségű számítás történjen, ugyanakkor a futtatási idő még kezelhető maradjon. A használt beállítások rendre \texttt{2000}, \texttt{1000}, \texttt{500} és \texttt{250} iterációk voltak.
 
-A mérések során három konfigurációt hasonlítottam össze. Referenciaként a naiv implementáció \texttt{16x16} méretű \emph{work-group} beállítással szerepelt. Emellett két \emph{tiled} konfigurációt vizsgáltam: \texttt{8x8} és \texttt{16x16} méretű \emph{work-groupokat}. Ezzel lehetővé vált annak elemzése, hogy nemcsak a lokális memória használata, hanem a csoportméret megválasztása is hogyan hat a teljesítményre.
+A mérések során négy GPU-konfigurációt és egy CPU-s referenciafutást érdemes összehasonlítani. GPU oldalon referenciaként a naiv implementáció \texttt{16x16} méretű \emph{work-group} beállítással szerepel, emellett pedig három \emph{tiled} konfiguráció vizsgálható: \texttt{4x4}, \texttt{8x8} és \texttt{16x16}. Ezzel lehetővé válik annak elemzése, hogy nemcsak a lokális memória használata, hanem a csoportméret megválasztása is hogyan hat a teljesítményre. A CPU-s szekvenciális mód külön baseline-ként szolgál, így a GPU-s gyorsulás már nemcsak a naiv kernelhez, hanem egy hagyományos szekvenciális megoldáshoz képest is megadható.
 
 A fő mérési sorozatban a peremkezelési mód \texttt{wrap=0} volt, vagyis a rácson kívüli cellák halottnak számítottak. Ezt egységes referencia-beállításként választottam, hogy a különböző implementációk összehasonlítása közvetlenül és egyszerűen értelmezhető legyen. Kiegészítő vizsgálatként külön mérési sorozat készült a \texttt{wrap=0} és \texttt{wrap=1} beállítások összehasonlítására is \texttt{1024x1024} és \texttt{2048x2048} rácsméretek mellett.
 
-A mérési eredmények megbízhatóságának növelése érdekében minden konfiguráció esetén egy bemelegítő futtatást (\texttt{warmup=1}) és öt ismétlést (\texttt{repeat=5}) alkalmaztam. A dokumentációban szereplő eredmények az ismételt futtatások átlagértékei. Ez csökkenti annak valószínűségét, hogy egyetlen futás esetleges eltérése torzítsa az eredményeket.
+A mérési eredmények megbízhatóságának növelése érdekében a GPU-konfigurációk esetén egy bemelegítő futtatást (\texttt{warmup=1}) és öt ismétlést (\texttt{repeat=5}) alkalmaztam. A CPU-s szekvenciális baseline esetén a batch fájl három mért ismétlést használ, mert ennél a módban a teljes falióra-idő méréséhez nincs szükség OpenCL-es eseményprofilozásra. A dokumentációban szereplő eredmények minden esetben az ismételt futtatások átlagértékei. Ez csökkenti annak valószínűségét, hogy egyetlen futás esetleges eltérése torzítsa az eredményeket.
 
-A mérések automatizálására külön batch fájlok készültek. A fő mérési sorozatot a \texttt{bench.bat} hajtotta végre, amely a négy vizsgált rácsméretre lefuttatta a naiv \texttt{16x16}, valamint a \emph{tiled} \texttt{8x8} és \texttt{16x16} konfigurációkat. A peremkezelés hatásának vizsgálatát a \texttt{bench\_wrap.bat} végezte, amely két rácsméreten hasonlította össze a \texttt{wrap=0} és \texttt{wrap=1} beállításokat a naiv, illetve a \emph{tiled 16x16} konfigurációk esetén.
+A mérések automatizálására külön batch fájlok készültek. A fő mérési sorozatot a \texttt{bench.bat} hajtja végre, amely a négy vizsgált rácsméretre lefuttatja a \texttt{cpu\_seq} baseline-t, a naiv \texttt{16x16}, valamint a \emph{tiled} \texttt{4x4}, \texttt{8x8} és \texttt{16x16} konfigurációkat. A peremkezelés hatásának vizsgálatát a \texttt{bench\_wrap.bat} végzi, amely két rácsméreten hasonlítja össze a \texttt{wrap=0} és \texttt{wrap=1} beállításokat a naiv, illetve a \emph{tiled 16x16} konfigurációk esetén.
 
-A program OpenCL eseményalapú profilozással külön mérte a host--device adatmásolás, a kernel futás és a device--host visszaolvasás idejét. Az értékelés során a fő hangsúlyt a kernel futási idejére helyeztem, mivel az implementációk közötti különbség elsősorban itt jelenik meg. A kernelidőből iterációnkénti átlagidőt számítottam, továbbá meghatároztam a \emph{tiled} megoldások gyorsulását a naiv implementációhoz képest.
+A GPU-s mód OpenCL eseményalapú profilozással külön méri a host--device adatmásolás, a kernel futás és a device--host visszaolvasás idejét. Emellett a program teljes falióra-időt is rögzít, így a gyorsulás nemcsak profilozott kernelidőre, hanem teljes futási időre is vizsgálható. A CPU-s szekvenciális módnál természetesen csak a teljes falióra-idő értelmezhető, ezért ez szolgál a GPU-s variánsok valódi baseline-jaként. A kiértékelés során a kernelidőből iterációnkénti átlagidő számítható, továbbá meghatározható a GPU-s megoldások gyorsulása a CPU szekvenciális futáshoz képest.
 
-A mérési eredmények feldolgozására Python szkriptek készültek. A \texttt{plot\_results.py} a fő mérési sorozat eredményeiből három grafikont állított elő: a kernelidő / iteráció diagramot, a naiv verzióhoz viszonyított gyorsulást, valamint az összegzett profilozott végrehajtási idő alakulását. A \texttt{plot\_wrap\_results.py} külön ábrán szemléltette a peremkezelés módjának hatását a kernel futási idejére.
+A mérési eredmények feldolgozására Python szkriptek készültek. A megújított \texttt{plot\_results.py} a fő mérési sorozat eredményeiből három grafikont állít elő: a GPU kernelidő / iteráció diagramot, a CPU szekvenciális baseline-hoz viszonyított gyorsulást, valamint a teljes falióra-idő alakulását. A szkript visszafelé kompatibilis a korábbi CSV-struktúrával is, ezért a régebbi mérési fájlokkal is futtatható. Külön kiegészítő szkript a \texttt{plot\_wrap\_results.py}, amely a peremkezelés módjának hatását szemlélteti a kernel futási idejére.
 
 \begin{figure}[H]
     \centering
@@ -155,59 +155,81 @@ A \ref{fig:kernel_per_iter}. ábra jól szemlélteti, hogy a rácsméret növeke
 
 \section{Mérési eredmények}
 
-A fő mérési sorozat eredményei alapján a \emph{tiled} OpenCL megoldás minden vizsgált rácsméret esetén gyorsabbnak bizonyult a naiv implementációnál. Ez egyértelműen azt mutatja, hogy a lokális memória használata hatékonyan csökkenti a globális memóriaelérések költségét, és ez a gyakorlatban is jól mérhető teljesítményjavulást eredményez.
+A fő mérési sorozat eredményei alapján a \emph{tiled} OpenCL megoldások minden vizsgált rácsméret esetén gyorsabbnak bizonyultak a naiv implementációnál. Ez egyértelműen azt mutatja, hogy a lokális memória használata hatékonyan csökkenti a globális memóriaelérések költségét, és ez a gyakorlatban is jól mérhető teljesítményjavulást eredményez.
+
+A \ref{tab:main_results}. táblázat a GPU-változatok kernelidejét foglalja össze, vagyis azt a részt, ahol maga a számítás történik az OpenCL eszközön. Ez a nézet jól használható a GPU-s változatok egymás közti összehasonlítására.
 
 \begin{table}[H]
 \centering
-\caption{A fő mérési eredmények összefoglalása a \texttt{wrap=0} esetén.}
+\caption{A GPU-változatok kernelideje a \texttt{wrap=0} esetén.}
 \label{tab:main_results}
 \resizebox{\textwidth}{!}{%
-\begin{tabular}{lrrrrr}
+\begin{tabular}{lrrrr}
 \toprule
-Rácsméret & Naiv kernelidő (ms) & Tiled 8x8 (ms) & Tiled 16x16 (ms) & 8x8 gyorsulás & 16x16 gyorsulás \\
+Rácsméret & Naiv kernelidő (ms) & Tiled 4x4 (ms) & Tiled 8x8 (ms) & Tiled 16x16 (ms) \\
 \midrule
-512x512   & 131.17 & 46.37  & 69.86  & 2.83x & 1.88x \\
-1024x1024 & 251.60 & 75.93  & 120.34 & 3.31x & 2.09x \\
-2048x2048 & 496.07 & 148.52 & 235.65 & 3.34x & 2.11x \\
-4096x4096 & 999.47 & 304.57 & 478.78 & 3.28x & 2.09x \\
+512x512   & 145.05 & 125.82 & 57.98  & 66.22  \\
+1024x1024 & 251.26 & 209.62 & 77.86  & 120.54 \\
+2048x2048 & 493.40 & 422.46 & 148.53 & 230.29 \\
+4096x4096 & 1017.92 & 926.11 & 317.01 & 476.04 \\
 \bottomrule
 \end{tabular}%
 }
 \end{table}
 
-A \ref{tab:main_results}. táblázat összefoglalja a fő mérési sorozat legfontosabb kernelidő- és gyorsulási eredményeit a \texttt{wrap=0} peremkezelési mód esetén.
+A kernelidők alapján a \texttt{tiled 8x8} konfiguráció minden vizsgált méreten a legkedvezőbb számítási időt adta. A \texttt{tiled 16x16} változat is gyorsabb volt a naiv kernelnél, de a vizsgált hardveren rendre elmaradt a \texttt{8x8} beállítástól. A \texttt{4x4} konfiguráció már szintén javulást hozott a naiv változathoz képest, de nem tudta megközelíteni a \texttt{8x8} teljesítményét.
 
-A \texttt{512x512} méretű rács esetén a naiv implementáció kernelideje \texttt{131.17 ms} volt, míg a \texttt{tiled 8x8} konfiguráció \texttt{46.37 ms}, a \texttt{tiled 16x16} konfiguráció pedig \texttt{69.86 ms} értéket adott. Ebben az esetben tehát mindkét optimalizált változat gyorsabb volt a referencia-megoldásnál, és a kisebb rácsméreten már a \texttt{tiled 8x8} bizonyult a legjobb választásnak.
+Mivel a beadandó egyik fontos kérdése az volt, hogy a GPU összességében mennyivel gyorsabb a szekvenciális CPU-megoldásnál, a \ref{tab:cpu_speedup}. táblázat a CPU baseline-hoz viszonyított teljes falióra-időket és gyorsulásokat mutatja. Ezek az értékek már nem csak a kernel futását, hanem a teljes végrehajtást veszik figyelembe.
 
-A \texttt{1024x1024} méretű rácsnál a különbség még látványosabbá vált. A naiv megoldás \texttt{251.60 ms} kernelidőt mutatott, míg a \texttt{tiled 8x8} változat \texttt{75.93 ms}, a \texttt{tiled 16x16} pedig \texttt{120.34 ms} eredményt adott. Itt a \texttt{tiled 8x8} konfiguráció körülbelül \texttt{3.31}-szeres gyorsulást ért el a naiv verzióhoz képest.
+\begin{table}[H]
+\centering
+\caption{CPU baseline-hoz viszonyított teljes falióra-idők és gyorsulások a \texttt{wrap=0} esetén.}
+\label{tab:cpu_speedup}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{lrrrrrrrrr}
+\toprule
+Rácsméret & CPU (ms) & Naiv (ms) & 4x4 (ms) & 8x8 (ms) & 16x16 (ms) & Naiv gyorsulás & 4x4 gyorsulás & 8x8 gyorsulás & 16x16 gyorsulás \\
+\midrule
+512x512   & 8339.43  & 192.22 & 184.08 & 105.81 & 102.90 & 43.39x & 45.30x & 78.81x & 81.05x \\
+1024x1024 & 16550.33 & 277.81 & 229.99 & 95.93  & 140.37 & 59.57x & 71.96x & 172.53x & 117.91x \\
+2048x2048 & 33534.24 & 509.94 & 447.52 & 161.96 & 245.81 & 65.76x & 74.93x & 207.06x & 136.42x \\
+4096x4096 & 71612.82 & 1053.19 & 978.04 & 380.01 & 491.69 & 68.00x & 73.22x & 188.45x & 145.65x \\
+\bottomrule
+\end{tabular}%
+}
+\end{table}
 
-A \texttt{2048x2048} rácsméretnél a naiv implementáció \texttt{496.07 ms}, a \texttt{tiled 8x8} \texttt{148.52 ms}, a \texttt{tiled 16x16} pedig \texttt{235.65 ms} kernelidőt adott. A \texttt{tiled 8x8} konfiguráció ebben az esetben is jelentős előnyt mutatott, és megközelítőleg \texttt{3.34}-szeres gyorsulást biztosított.
+A \ref{tab:cpu_speedup}. táblázatból jól látszik, hogy a GPU-s végrehajtás már a legkisebb vizsgált méreten is nagyságrendileg gyorsabb a CPU szekvenciális baseline-nál. \texttt{512x512} méreten a CPU futás \texttt{8339.43 ms} volt, míg a GPU-változatok \texttt{102.90 ms} és \texttt{192.22 ms} közötti teljes időket adtak. Ezen a legkisebb méreten a teljes falióra-idő alapján a \texttt{tiled 16x16} konfiguráció volt a legjobb, amely \texttt{81.05x}-ös gyorsulást ért el, miközben a \texttt{tiled 8x8} változat \texttt{78.81x}-ös gyorsulást adott.
 
-A legnagyobb, \texttt{4096x4096} méretű rács esetén a naiv megoldás \texttt{999.47 ms} kernelidőt mutatott, míg a \texttt{tiled 8x8} konfiguráció \texttt{304.57 ms}, a \texttt{tiled 16x16} pedig \texttt{478.78 ms} értéket adott. Ez azt jelenti, hogy a \texttt{tiled 8x8} megoldás a legnagyobb vizsgált méreten is hozzávetőleg \texttt{3.28}-szoros gyorsulást ért el a naiv implementációhoz képest.
+\texttt{1024x1024} méretnél már egyértelműen a \texttt{tiled 8x8} konfiguráció lett a legjobb: a CPU \texttt{16550.33 ms}-os idejével szemben a teljes GPU-s falióra-idő mindössze \texttt{95.93 ms} volt, ami \texttt{172.53x}-es gyorsulást jelent. A \texttt{tiled 16x16} ugyanezen a méreten \texttt{117.91x}-es, a naiv változat pedig \texttt{59.57x}-es gyorsulást adott.
 
-Az eredményekből jól látszik, hogy a \emph{tiled} megközelítés minden esetben előnyösebb volt a naiv verziónál, ugyanakkor a két optimalizált konfiguráció között is jelentős különbség mutatkozott. A vizsgált hardveren a \texttt{8x8} méretű \emph{work-group} bizonyult a legjobb választásnak a közepes és nagyobb rácsméretek esetén, míg a \texttt{16x16} méretű \emph{tiled} megoldás ugyan gyorsabb volt a naiv változatnál, de teljesítménye minden nagyobb vizsgált méreten elmaradt a \texttt{8x8} konfigurációétól. Ez azt mutatja, hogy a \emph{work-group} méret megválasztása lényegesen befolyásolja a teljesítményt.
+\texttt{2048x2048} méret esetén a CPU \texttt{33534.24 ms} alatt végzett, míg a \texttt{tiled 8x8} konfiguráció \texttt{161.96 ms} teljes futási időt mutatott. Ez \texttt{207.06x}-es gyorsulást jelent, ami a teljes mérési sorozat legnagyobb sebességnyeresége. Ugyanezen a méreten a \texttt{tiled 16x16} \texttt{136.42x}-es, a \texttt{tiled 4x4} pedig \texttt{74.93x}-es gyorsulást adott.
 
-A mért hardverkörnyezetben a \texttt{tiled 8x8} konfiguráció azért is lehetett kedvezőbb a \texttt{tiled 16x16} beállításnál, mert a kisebb \emph{work-group} gyakran rugalmasabban illeszkedik a GPU erőforrásaihoz. A nagyobb csoportméret ugyan elméletileg több adat együttes feldolgozását teszi lehetővé, a gyakorlatban azonban növelheti a lokális memóriaigényt, a regiszterhasználatot és ronthatja az egyidejűleg futtatható \emph{work-groupok} számát. Emiatt előfordulhat, hogy a \texttt{16x16} konfiguráció kisebb erőforrás-kihasználást vagy kedvezőtlenebb ütemezést eredményez, míg a \texttt{8x8} beállítás jobb egyensúlyt ad a lokális memóriahasználat, az ütemezhetőség és a párhuzamosság között. A kapott eredmények alapján a vizsgált GPU-n ez a kompromisszum a \texttt{tiled 8x8} változatnak kedvezett.
+A legnagyobb, \texttt{4096x4096} méretű rácsnál a CPU szekvenciális végrehajtás \texttt{71612.82 ms} volt, míg a \texttt{tiled 8x8} konfiguráció \texttt{380.01 ms}, a \texttt{tiled 16x16} pedig \texttt{491.69 ms} falióra-időt adott. A \texttt{tiled 8x8} gyorsulása itt \texttt{188.45x}, vagyis a gyorsulás továbbra is rendkívül nagy maradt, még ha a csúcsérték a \texttt{2048x2048} méretnél jelentkezett is.
+
+Az eredményekből tehát két fontos következtetés adódik. Egyrészt a \emph{tiled} megközelítés minden esetben előnyösebb volt a naiv verziónál. Másrészt a legjobb konfiguráció megítélése attól is függ, hogy a kernelidőt vagy a teljes falióra-időt nézzük. Kernelidő alapján a \texttt{tiled 8x8} minden méreten a legerősebb volt, míg teljes falióra-időben a legkisebb, \texttt{512x512} méretnél még a \texttt{tiled 16x16} végzett az élen, de \texttt{1024x1024} mérettől felfelé már stabilan a \texttt{tiled 8x8} adta a legjobb teljes eredményt.
+
+A mért hardverkörnyezetben a \texttt{tiled 8x8} konfiguráció azért is lehetett kedvezőbb a \texttt{tiled 16x16} beállításnál, mert a kisebb \emph{work-group} gyakran rugalmasabban illeszkedik a GPU erőforrásaihoz. A nagyobb csoportméret ugyan elméletileg több adat együttes feldolgozását teszi lehetővé, a gyakorlatban azonban növelheti a lokális memóriaigényt, a regiszterhasználatot és ronthatja az egyidejűleg futtatható \emph{work-groupok} számát. Emiatt előfordulhat, hogy a \texttt{16x16} konfiguráció kisebb erőforrás-kihasználást vagy kedvezőtlenebb ütemezést eredményez, míg a \texttt{8x8} beállítás jobb egyensúlyt ad a lokális memóriahasználat, az ütemezhetőség és a párhuzamosság között. A kapott eredmények alapján a vizsgált GPU-n ez a kompromisszum összességében a \texttt{tiled 8x8} változatnak kedvezett.
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.9\textwidth]{figures/speedup.png}
-    \caption{A \emph{tiled} megoldások gyorsulása a naiv implementációhoz képest.}
+    \caption{A GPU-s megoldások gyorsulása a CPU szekvenciális baseline-hoz képest.}
     \label{fig:speedup}
 \end{figure}
 
-A \ref{fig:speedup}. ábra alapján a \texttt{tiled 8x8} konfiguráció gyorsulása rendre \texttt{2.83x}, \texttt{3.31x}, \texttt{3.34x} és \texttt{3.28x} volt a vizsgált rácsméreteken. A \texttt{tiled 16x16} konfiguráció gyorsulása ezzel szemben \texttt{1.88x}, \texttt{2.09x}, \texttt{2.11x} és \texttt{2.09x} értékeket adott. A gyorsulási görbe jól mutatja, hogy az optimalizált megközelítés különösen nagyobb rácsméretek mellett válik igazán előnyössé.
+A \ref{fig:speedup}. ábra alapján a \texttt{tiled 8x8} konfiguráció gyorsulása rendre \texttt{78.81x}, \texttt{172.53x}, \texttt{207.06x} és \texttt{188.45x} volt a vizsgált rácsméreteken a CPU szekvenciális baseline-hoz képest. A \texttt{tiled 16x16} konfiguráció gyorsulása ezzel szemben \texttt{81.05x}, \texttt{117.91x}, \texttt{136.42x} és \texttt{145.65x} értékeket adott. Jól látható, hogy a legkisebb méreten a \texttt{16x16} még kismértékben előnyösebb teljes falióra-időt adott, de közepes és nagyobb rácsméreteknél a \texttt{tiled 8x8} vált a legerősebb konfigurációvá.
 
-Az összegzett profilozott végrehajtási idő vizsgálata azt mutatja, hogy a kernelidő dominálja a végrehajtást, míg a host--device és device--host adatmásolások költsége ehhez képest viszonylag kicsi marad. Ez különösen a nagyobb rácsméretek esetén figyelhető meg, ahol az összegzett profilozott végrehajtási idő alakulását döntően a kernel teljesítménye határozza meg.
+A teljes falióra-idő vizsgálata azt mutatja, hogy a GPU-s megoldásoknál továbbra is a kernel végrehajtása dominál, miközben a host--device és device--host adatmásolások költsége ehhez képest viszonylag kicsi marad. Ez különösen a nagyobb rácsméretek esetén figyelhető meg, ahol a teljes futási idő alakulását döntően a kernel teljesítménye határozza meg.
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.9\textwidth]{figures/total_time.png}
-    \caption{Az összegzett profilozott végrehajtási idő összehasonlítása a vizsgált implementációk esetén.}
+    \caption{A teljes falióra-idő összehasonlítása a vizsgált implementációk esetén.}
     \label{fig:total_time}
 \end{figure}
 
-A \ref{fig:total_time}. ábra szerint az összegzett profilozott végrehajtási idők szintén megerősítik a kernelidőknél tapasztalt sorrendet. A naiv implementáció minden méreten a leglassabb, míg a \texttt{tiled 8x8} konfiguráció adja a legkedvezőbb eredményt. A másolási idők hozzájárulása a teljes végrehajtáshoz a vizsgált esetekben kicsi, ezért a teljesítményjavulás elsődleges forrása valóban a kernel optimalizálásából származik.
+A \ref{fig:total_time}. ábra szerint a teljes falióra-idők is megerősítik a fenti képet: a CPU szekvenciális baseline minden méreten nagyságrendekkel lassabb, a naiv GPU már önmagában is jelentős gyorsulást ad, de a legjobb eredményt összességében a \texttt{tiled} változatok hozzák. A másolási idők hozzájárulása a teljes GPU-s végrehajtáshoz a vizsgált esetekben kicsi, ezért a teljesítményjavulás elsődleges forrása továbbra is a kernel optimalizálásából származik.
 
 A külön elvégzett wrap-összehasonlító mérések azt mutatták, hogy a peremkezelés módja kisebb, de jól mérhető hatással lehet a futási időre. A naiv implementáció esetében a \texttt{wrap=0} és \texttt{wrap=1} közötti különbség viszonylag kicsi maradt: \texttt{1024x1024} méret esetén a \texttt{wrap=1} kismértékben lassabbnak, míg \texttt{2048x2048} méret esetén minimálisan gyorsabbnak bizonyult. Ezzel szemben a \emph{tiled 16x16} konfigurációban a toroidális peremkezelés minden vizsgált esetben lassabb futást eredményezett. \texttt{1024x1024} méret mellett a kernelidő \texttt{119.73 ms}-ról \texttt{129.97 ms}-ra, míg \texttt{2048x2048} méretnél \texttt{251.59 ms}-ról \texttt{254.84 ms}-ra nőtt.
 
@@ -242,11 +264,11 @@ A wrap-összehasonlító mérések kiegészítő eredményként azt mutatták, h
 
 A beadandó során sikerült elkészíteni a Conway-féle Game of Life OpenCL-alapú, párhuzamos megvalósítását. A fejlesztés eredményeként egy olyan program jött létre, amely képes különböző méretű rácsok több iteráción keresztüli feldolgozására, támogatja a kétféle peremkezelési módot, parancssori paraméterekkel vezérelhető, valamint alkalmas teljesítménymérések elvégzésére és azok CSV formátumú rögzítésére.
 
-A projekt során két különböző kernelváltozat készült. A naiv implementáció egyszerű és jól áttekinthető referencia-megoldást adott, míg a lokális memóriát használó \emph{tiled} megközelítés lehetővé tette a teljesítmény javítását. A mérések alapján egyértelműen kimutatható volt, hogy a \emph{tiled} megoldás minden vizsgált méreten gyorsabb a naiv verziónál, és a tesztelt konfigurációk közül a \texttt{tiled 8x8} bizonyult a legkedvezőbb választásnak.
+A projekt során egy naiv GPU-kernel, több lokális memóriát használó \emph{tiled} GPU-változat, valamint egy külön CPU szekvenciális baseline-mód is kialakításra került. A naiv implementáció egyszerű és jól áttekinthető referencia-megoldást adott, míg a \emph{tiled} megközelítés lehetővé tette a teljesítmény javítását. A továbbfejlesztett mérési infrastruktúra már \texttt{4x4}, \texttt{8x8} és \texttt{16x16} \emph{work-group} méreteket, továbbá CPU--GPU összehasonlítást is támogat, így a későbbi futtatásokból közvetlenül kimutathatóvá válik, hogy melyik konfiguráció adja a legjobb kompromisszumot.
 
 A beadandó egyik legfontosabb tanulsága az volt, hogy a GPU-alapú párhuzamos feldolgozásban nem elegendő pusztán a feladat párhuzamosíthatósága. Legalább ennyire meghatározó a memóriahasználat módja, az adatok elrendezése, valamint a \emph{work-group} méret helyes megválasztása is. A kapott eredmények jól mutatták, hogy megfelelő optimalizációval jelentős gyorsulás érhető el ugyanazon algoritmus esetén.
 
-A projekt további fejlesztési lehetőségeket is kínál. Érdekes irány lehetne további \emph{work-group} méretek vizsgálata, nem négyzetes rácsméretek tesztelése, illetve a CPU- és GPU-változat részletesebb összehasonlítása. A program fejlesztése során CPU referenciaalapú validációs lehetőség is bekerült, amely lehetővé teszi a GPU eredményeinek összehasonlítását egy CPU referenciaimplementációval. Ez különösen hasznos a helyes működés ellenőrzésére kisebb vagy tesztcélú futtatások esetén. További lehetőséget jelenthetne a program vizualizációval való kiegészítése is, amely szemléletesebbé tenné az egyes generációk alakulását.
+A projekt további fejlesztési lehetőségeket is kínál. Érdekes irány lehetne a random kezdőállapot generálásának párhuzamosítása, további vagy nem négyzetes \emph{work-group} méretek vizsgálata, illetve a CPU- és GPU-változat részletesebb összehasonlítása különböző hardvereken. A program fejlesztése során CPU referenciaalapú validációs lehetőség és külön CPU benchmark mód is bekerült, amely lehetővé teszi a GPU eredményeinek összehasonlítását egy valódi szekvenciális baseline-nal. Ez különösen hasznos a helyes működés ellenőrzésére és a teljes gyorsulás korrekt megadására. További lehetőséget jelenthetne a program vizualizációval való kiegészítése is, amely szemléletesebbé tenné az egyes generációk alakulását.
 
 Összességében a beadandó elérte a kitűzött célját: bemutatta, hogy a Conway-féle Game of Life hatékonyan megvalósítható OpenCL segítségével, és megfelelő optimalizáció alkalmazásával a naiv megközelítéshez képest számottevő teljesítményjavulás érhető el. A projekt így nemcsak működő programot, hanem jól értelmezhető mérési eredményeket és gyakorlati tapasztalatokat is adott a párhuzamos programozás és a GPU-s végrehajtás területén.
 

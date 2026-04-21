@@ -64,4 +64,32 @@ char* load_kernel_source(const char* path, int* error_code) {
 
     file_size = (size_t)file_size_long;
 
-    // Allocate a writable buffer for the full source plus '
+    // Allocate a writable buffer for the full source plus
+    source = (char*)malloc(file_size + 1);
+    if (!source) {
+        *error_code = -3;  // allocation error
+        fclose(fp);
+        return NULL;
+    }
+
+    // Read the entire file in one pass.
+    read_count = fread(source, 1, file_size, fp);
+    if (read_count != file_size) {
+        *error_code = -4;  // read error
+        free(source);
+        fclose(fp);
+        return NULL;
+    }
+
+    // Null-terminate the buffer so OpenCL can consume it as C text.
+    source[file_size] = '\0';
+
+    // Fail cleanly if the file could not be closed.
+    if (fclose(fp) != 0) {
+        *error_code = -2;  // close error
+        free(source);
+        return NULL;
+    }
+
+    return source;
+}

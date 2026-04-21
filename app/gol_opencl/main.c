@@ -9,6 +9,36 @@
 #include <time.h>
 #include <errno.h>
 
+#ifdef _WIN32
+#include <windows.h>
+#else
+#include <sys/time.h>
+#endif
+
+typedef enum RunMode {
+    MODE_GPU = 0,
+    MODE_CPU_SEQ = 1
+} RunMode;
+
+// Return the current time in milliseconds using a high-resolution timer.
+static double now_ms(void) {
+#ifdef _WIN32
+    static LARGE_INTEGER freq;
+    static int initialized = 0;
+    LARGE_INTEGER counter;
+    if (!initialized) {
+        QueryPerformanceFrequency(&freq);
+        initialized = 1;
+    }
+    QueryPerformanceCounter(&counter);
+    return (double)counter.QuadPart * 1000.0 / (double)freq.QuadPart;
+#else
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (double)ts.tv_sec * 1000.0 + (double)ts.tv_nsec / 1e6;
+#endif
+}
+
 // Abort the program when an OpenCL call fails.
 static void die_cl(const char* where, cl_int err) {
     fprintf(stderr, "[OpenCL ERROR] %s failed, code=%d\n", where, err);
@@ -93,11 +123,19 @@ static int file_exists(const char* path) {
     return 0;
 }
 
+// Convert the selected run mode to the corresponding CSV label.
+static const char* mode_to_csv_name(RunMode mode, int tiled) {
+    if (mode == MODE_CPU_SEQ) return "cpu_seq";
+    return tiled ? "gpu_tiled" : "gpu_naive";
+}
+
 // Append one benchmark result row to a CSV file.
 static void append_csv_row(const char* out_path,
+                           RunMode mode,
                            int rows, int cols, int iters, int wrap,
                            size_t lx, size_t ly,
-                           double h2d_ms, double kernel_ms, double d2h_ms, double total_ms,
+                           double h2d_ms, double kernel_ms, double d2h_ms,
+                           double total_ms, double wall_total_ms,
                            int tiled)
 {
     int exists = file_exists(out_path);
@@ -109,14 +147,14 @@ static void append_csv_row(const char* out_path,
 
     // Write the CSV header when the file is created for the first time.
     if (!exists) {
-        fprintf(f, "rows,cols,iters,wrap,lx,ly,h2d_ms,kernel_ms,d2h_ms,total_ms,tiled\n");
+        fprintf(f, "mode,rows,cols,iters,wrap,lx,ly,h2d_ms,kernel_ms,d2h_ms,total_ms,wall_total_ms,tiled\n");
     }
 
-    // Write the current measurement values as one CSV row.
-    fprintf(f, "%d,%d,%d,%d,%u,%u,%.6f,%.6f,%.6f,%.6f,%d\n",
+    fprintf(f, "%s,%d,%d,%d,%d,%u,%u,%.6f,%.6f,%.6f,%.6f,%.6f,%d\n",
+            mode_to_csv_name(mode, tiled),
             rows, cols, iters, wrap,
             (unsigned)lx, (unsigned)ly,
-            h2d_ms, kernel_ms, d2h_ms, total_ms,
+            h2d_ms, kernel_ms, d2h_ms, total_ms, wall_total_ms,
             tiled);
 
     fclose(f);
@@ -179,6 +217,51 @@ static void gol_cpu_step(const unsigned char* in,
     }
 }
 
+// Run the sequential CPU reference implementation and measure its wall-clock time.
+static void run_cpu_seq(const unsigned char* initial,
+                        unsigned char* result,
+                        int rows,
+                        int cols,
+                        int iters,
+                        int wrap,
+                        int repeat,
+                        int warmup,
+                        double* avg_wall_total_ms)
+{
+    const size_t n = (size_t)rows * (size_t)cols;
+    unsigned char* cpu_a = (unsigned char*)malloc(n);
+    unsigned char* cpu_b = (unsigned char*)malloc(n);
+    if (!cpu_a || !cpu_b) {
+        fprintf(stderr, "CPU benchmark allocation failed.\n");
+        free(cpu_a);
+        free(cpu_b);
+        exit(1);
+    }
+
+    double wall_sum = 0.0;
+
+    for (int run = 0; run < warmup + repeat; ++run) {
+        memcpy(cpu_a, initial, n);
+        double start_ms = now_ms();
+
+        for (int t = 0; t < iters; ++t) {
+            gol_cpu_step(cpu_a, cpu_b, rows, cols, wrap);
+            unsigned char* tmp = cpu_a;
+            cpu_a = cpu_b;
+            cpu_b = tmp;
+        }
+
+        double elapsed_ms = now_ms() - start_ms;
+        if (run >= warmup) wall_sum += elapsed_ms;
+    }
+
+    memcpy(result, cpu_a, n);
+    *avg_wall_total_ms = wall_sum / (double)repeat;
+
+    free(cpu_a);
+    free(cpu_b);
+}
+
 // Compare the GPU result against the CPU reference implementation.
 static int validate_against_cpu(const unsigned char* initial,
                                 const unsigned char* gpu_result,
@@ -236,8 +319,8 @@ static int validate_against_cpu(const unsigned char* initial,
 
 // Print the command-line usage and default parameter values.
 static void usage(const char* argv0) {
-    printf("Usage: %s [--rows N] [--cols N] [--iters N] [--seed N] [--wrap 0|1] [--tiled 0|1] [--lx N] [--ly N] [--validate 0|1] [--csv] [--out FILE] [--repeat N] [--warmup N]\n", argv0);
-    printf("Defaults: rows=1024 cols=1024 iters=500 seed=time wrap=0 tiled=0 lx=16 ly=16 validate=0 repeat=1 warmup=0\n");
+    printf("Usage: %s [--rows N] [--cols N] [--iters N] [--seed N] [--wrap 0|1] [--mode gpu|cpu_seq] [--tiled 0|1] [--lx N] [--ly N] [--validate 0|1] [--csv] [--out FILE] [--repeat N] [--warmup N]\n", argv0);
+    printf("Defaults: rows=1024 cols=1024 iters=500 seed=time wrap=0 mode=gpu tiled=0 lx=16 ly=16 validate=0 repeat=1 warmup=0\n");
 }
 
 int main(int argc, char** argv) {
@@ -254,6 +337,7 @@ int main(int argc, char** argv) {
     const char* out_path = NULL;
     int repeat = 1;
     int warmup = 0;
+    RunMode mode = MODE_GPU;
 
     // Parse command-line arguments and override defaults.
     for (int i = 1; i < argc; ++i) {
@@ -266,6 +350,16 @@ int main(int argc, char** argv) {
         else if (!strcmp(argv[i], "--validate") && i + 1 < argc) validate = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--lx") && i + 1 < argc) lx_arg = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--ly") && i + 1 < argc) ly_arg = atoi(argv[++i]);
+        else if (!strcmp(argv[i], "--mode") && i + 1 < argc) {
+            const char* mode_arg = argv[++i];
+            if (!strcmp(mode_arg, "gpu")) mode = MODE_GPU;
+            else if (!strcmp(mode_arg, "cpu_seq")) mode = MODE_CPU_SEQ;
+            else {
+                fprintf(stderr, "Unknown mode: %s\n", mode_arg);
+                usage(argv[0]);
+                return 1;
+            }
+        }
         else if (!strcmp(argv[i], "--csv")) csv = 1;
         else if (!strcmp(argv[i], "--out") && i + 1 < argc) out_path = argv[++i];
         else if (!strcmp(argv[i], "--repeat") && i + 1 < argc) repeat = atoi(argv[++i]);
@@ -296,6 +390,12 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+    // Reject tiled execution when the program is running in CPU sequential mode.
+    if (mode == MODE_CPU_SEQ && tiled) {
+        fprintf(stderr, "CPU sequential mode does not use the tiled kernel flag.\n");
+        return 1;
+    }
+
     const size_t n = (size_t)rows * (size_t)cols;
     unsigned char* h_grid = (unsigned char*)malloc(n);
     unsigned char* h_tmp  = (unsigned char*)malloc(n);
@@ -312,6 +412,31 @@ int main(int argc, char** argv) {
     srand(seed);
     for (size_t k = 0; k < n; ++k) {
         h_grid[k] = (unsigned char)(rand() & 1);
+    }
+
+    // Execute the sequential CPU benchmark path and optionally write its result to CSV.
+    if (mode == MODE_CPU_SEQ) {
+        double cpu_wall_total_ms = 0.0;
+        run_cpu_seq(h_grid, h_tmp, rows, cols, iters, wrap, repeat, warmup, &cpu_wall_total_ms);
+
+        printf("Mode: cpu_seq\n");
+        printf("Execution device: Host CPU (sequential reference, single-threaded)\n");
+        printf("Rows x Cols: %d x %d\n", rows, cols);
+        printf("Iterations: %d\n", iters);
+        printf("Wrap: %d\n", wrap);
+        printf("Repeat / Warmup: %d / %d\n", repeat, warmup);
+        printf("CPU sequential total wall time: %.3f ms\n", cpu_wall_total_ms);
+        printf("CPU sequential time per iteration: %.6f ms\n", cpu_wall_total_ms / (double)iters);
+
+        if (csv && out_path) {
+            append_csv_row(out_path, mode, rows, cols, iters, wrap, 1u, 1u,
+                           0.0, cpu_wall_total_ms, 0.0,
+                           cpu_wall_total_ms, cpu_wall_total_ms, 0);
+        }
+
+        free(h_grid);
+        free(h_tmp);
+        return 0;
     }
 
     cl_int err;
@@ -409,10 +534,12 @@ int main(int argc, char** argv) {
     double sum_kernel_ms = 0.0;
     double sum_d2h_ms = 0.0;
     double sum_total_ms = 0.0;
+    double sum_wall_total_ms = 0.0;
 
     // Execute warmup and repeated benchmark runs.
     for (int run = 0; run < warmup + repeat; ++run) {
         cl_ulong h2d_ns = 0, kernel_ns = 0, d2h_ns = 0;
+        double wall_start_ms = now_ms();
 
         cl_mem cur = d_a;
         cl_mem next = d_b;
@@ -480,6 +607,10 @@ int main(int argc, char** argv) {
             clReleaseEvent(ev_d2h);
         }
 
+        err = clFinish(queue);
+        if (err != CL_SUCCESS) die_cl("clFinish", err);
+
+        double wall_total_ms = now_ms() - wall_start_ms;
         double h2d_ms = (double)h2d_ns / 1e6;
         double ker_ms = (double)kernel_ns / 1e6;
         double d2h_ms = (double)d2h_ns / 1e6;
@@ -491,6 +622,7 @@ int main(int argc, char** argv) {
             sum_kernel_ms += ker_ms;
             sum_d2h_ms += d2h_ms;
             sum_total_ms += total_ms;
+            sum_wall_total_ms += wall_total_ms;
         }
     }
 
@@ -499,6 +631,7 @@ int main(int argc, char** argv) {
     double ker_ms = sum_kernel_ms / (double)repeat;
     double d2h_ms = sum_d2h_ms / (double)repeat;
     double total_ms = sum_total_ms / (double)repeat;
+    double wall_total_ms = sum_wall_total_ms / (double)repeat;
 
     // Validate the GPU output against the CPU reference if requested.
     if (validate) {
@@ -526,35 +659,28 @@ int main(int argc, char** argv) {
             free(h_tmp);
             return 2;
         }
+        printf("Validation OK (CPU reference matched GPU result).\n");
     }
 
     // Print the result either as CSV or as a readable report.
-    if (csv) {
-        printf("%d,%d,%d,%d,%u,%u,%.6f,%.6f,%.6f,%.6f,%d\n",
-               rows, cols, iters, wrap,
-               (unsigned)lx, (unsigned)ly,
-               h2d_ms, ker_ms, d2h_ms, total_ms, tiled);
-    } else {
-        printf("GoL OpenCL (%s)\n", tiled ? "tiled" : "naive");
-        printf("Grid: %dx%d, iters=%d, wrap=%d\n", rows, cols, iters, wrap);
-        printf("Local: %ux%u, Global: %ux%u\n",
-               (unsigned)lx, (unsigned)ly,
-               (unsigned)gx, (unsigned)gy);
-        printf("Warmup: %d, Repeat: %d\n", warmup, repeat);
-        if (validate) {
-            printf("Validation: PASSED (GPU result matches CPU reference)\n");
-        }
-        printf("H2D:   %.3f ms\n", h2d_ms);
-        printf("Kernel:%.3f ms (sum over iters)\n", ker_ms);
-        printf("D2H:   %.3f ms\n", d2h_ms);
-        printf("Total: %.3f ms\n", total_ms);
-        printf("Per-iter kernel: %.6f ms\n", ker_ms / (double)iters);
-    }
+    printf("Mode: %s\n", mode_to_csv_name(mode, tiled));
+    printf("Rows x Cols: %d x %d\n", rows, cols);
+    printf("Iterations: %d\n", iters);
+    printf("Wrap: %d\n", wrap);
+    printf("Tiled: %d\n", tiled);
+    printf("Local size: %u x %u\n", (unsigned)lx, (unsigned)ly);
+    printf("Repeat / Warmup: %d / %d\n", repeat, warmup);
+    printf("Host->Device: %.3f ms\n", h2d_ms);
+    printf("Kernel total: %.3f ms\n", ker_ms);
+    printf("Device->Host: %.3f ms\n", d2h_ms);
+    printf("Profiled GPU total: %.3f ms\n", total_ms);
+    printf("Wall total: %.3f ms\n", wall_total_ms);
+    printf("Kernel per iteration: %.6f ms\n", ker_ms / (double)iters);
 
     // Save the measured result row to a CSV file when requested.
-    if (out_path) {
-        append_csv_row(out_path, rows, cols, iters, wrap, lx, ly,
-                       h2d_ms, ker_ms, d2h_ms, total_ms, tiled);
+    if (csv && out_path) {
+        append_csv_row(out_path, mode, rows, cols, iters, wrap, lx, ly,
+                       h2d_ms, ker_ms, d2h_ms, total_ms, wall_total_ms, tiled);
     }
 
     // Release all allocated OpenCL objects.
