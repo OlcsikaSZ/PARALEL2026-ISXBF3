@@ -19,14 +19,24 @@ for %%S in (512 1024 2048 4096) do (
 
     echo ==== SIZE %%S x %%S, iters=!ITERS! ====
 
-    REM Naive baseline
-    %EXE% --rows %%S --cols %%S --iters !ITERS! --wrap 0 --lx 16 --ly 16 --seed 12345 --repeat 5 --warmup 1 --csv --out %OUT%
+    echo [CPU] Sequential baseline
+    %EXE% --mode cpu_seq --rows %%S --cols %%S --iters !ITERS! --wrap 0 --seed 12345 --repeat 3 --warmup 1 --csv --out %OUT%
+    echo.
 
-    REM Tiled 8x8
-    %EXE% --rows %%S --cols %%S --iters !ITERS! --wrap 0 --tiled 1 --lx 8 --ly 8 --seed 12345 --repeat 5 --warmup 1 --csv --out %OUT%
+    echo [GPU] Naive 16x16
+    %EXE% --mode gpu --rows %%S --cols %%S --iters !ITERS! --wrap 0 --lx 16 --ly 16 --seed 12345 --repeat 5 --warmup 1 --csv --out %OUT%
+    echo.
 
-    REM Tiled 16x16
-    %EXE% --rows %%S --cols %%S --iters !ITERS! --wrap 0 --tiled 1 --lx 16 --ly 16 --seed 12345 --repeat 5 --warmup 1 --csv --out %OUT%
+    echo [GPU] Tiled 4x4
+    %EXE% --mode gpu --rows %%S --cols %%S --iters !ITERS! --wrap 0 --tiled 1 --lx 4 --ly 4 --seed 12345 --repeat 5 --warmup 1 --csv --out %OUT%
+    echo.
+
+    echo [GPU] Tiled 8x8
+    %EXE% --mode gpu --rows %%S --cols %%S --iters !ITERS! --wrap 0 --tiled 1 --lx 8 --ly 8 --seed 12345 --repeat 5 --warmup 1 --csv --out %OUT%
+    echo.
+
+    echo [GPU] Tiled 16x16
+    %EXE% --mode gpu --rows %%S --cols %%S --iters !ITERS! --wrap 0 --tiled 1 --lx 16 --ly 16 --seed 12345 --repeat 5 --warmup 1 --csv --out %OUT%
 
     echo.
 )
